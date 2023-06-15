@@ -12,7 +12,7 @@ name: Create and publish a Docker image
 on:
   push:
     branches: ['release']
-    tags: ['v*.*.*']
+    tags: ['*.*.*']
   pull_request:
     branches: ['main']
 
