@@ -1,0 +1,17 @@
+
+[project]
+name = ""
+version = ""
+description = ""
+authors = [
+    {name = "Daniel Pinto", email = "dmp593@gmail.com"},
+]
+dependencies = [
+    "fastapi>=0.97.0",
+    "uvicorn>=0.22.0",
+    "python-multipart>=0.0.6",
+    "requests>=2.31.0",
+]
+requires-python = ">=3.11"
+license = {text = "MIT"}
+

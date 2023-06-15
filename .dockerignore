@@ -1,0 +1,9 @@
+__pypackages__/
+.vscode/
+Dockerfile
+docker-compose.yaml
+.gitignore
+.pdm-python
+Makefile
+pdm.lock
+pyproject.toml
