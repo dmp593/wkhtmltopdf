@@ -5,10 +5,9 @@ from functools import cache
 
 from pathlib import Path
 
-from app.utils import ensure_http_scheme, make_tmpfile
+from app.utils import ensure_http_scheme, get_hash, make_tmpfile
 
 
-XVFB_BINARY_PATH = "/usr/bin/xvfb-run"
 WKHTMLTOPDF_BINARY_PATH = "wkhtmltopdf"
 
 
@@ -46,23 +45,23 @@ def make_cli_options(**options) -> list[str]:
 
 
 def generate_url_to_pdf(url: str, options: dict[str, str]) -> Path:
-    pdf_filepath = make_tmpfile(suffix=".pdf", touch=False)
     url = ensure_http_scheme(url, default_secure=True)
 
+    filename = get_hash(url.encode('utf-8'))
+    pdf_filepath = make_tmpfile(name=filename, suffix=".pdf", touch=False)
+    
     subprocess.run([
-        XVFB_BINARY_PATH,
-        WKHTMLTOPDF_BINARY_PATH,
-        *make_cli_options(**options),
-        url,
-        pdf_filepath
-    ])
+            WKHTMLTOPDF_BINARY_PATH,
+            *make_cli_options(**options),
+            url,
+            pdf_filepath
+        ])
 
     return pdf_filepath
 
 
 def generate_html_to_pdf(html_filepath: Path, pdf_filepath: Path, options: dict[str, str]) -> Path:
     subprocess.run([
-        XVFB_BINARY_PATH,
         WKHTMLTOPDF_BINARY_PATH,
         *make_cli_options(**options),
         html_filepath,

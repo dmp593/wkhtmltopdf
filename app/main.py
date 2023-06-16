@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from fastapi import FastAPI, Request, UploadFile
 from fastapi.exceptions import HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from starlette import status
 
 from app import wkhtmltopdf
@@ -62,12 +62,21 @@ def get_file(id: str, disposition: str = "inline"):
 @app.get("/")
 async def generate_pdf_from_url(request: Request) -> FileResponse:
     query_params = dict(request.query_params)
-    url = query_params.pop('url')
+    
+    url = query_params.pop('url', False)
+
+    if not url: return RedirectResponse("/help")
+    
+    disposition = query_params.pop('disposition', 'inline').lower()
+    if disposition not in ["inline", "attachment"]:
+        disposition = "inline"
+
     pdf_filepath = wkhtmltopdf.generate_url_to_pdf(url, options=query_params)
     
     return FileResponse(
         pdf_filepath,
         media_type="application/pdf",
+        content_disposition_type=disposition,
         headers={ "X-ID": pdf_filepath.stem },
         filename=f"{pdf_filepath.stem}.pdf"
     )
@@ -79,7 +88,7 @@ async def generate_pdf_from_html_file(request: Request) -> FileResponse:
     upload_file: UploadFile = form.pop("file")
     
     file_data_bytes = await upload_file.read() # FIXME if large file
-    options_bytes = json.dumps(form, sort_keys=True).encode('utf8')
+    options_bytes = json.dumps(form, sort_keys=True).encode("utf-8")
 
     sha256_request = get_hash(file_data_bytes + options_bytes, "sha256")
     pdf_filepath = make_tmpfile(sha256_request, suffix=".pdf", touch=False)

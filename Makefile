@@ -8,3 +8,6 @@ down:
 	docker-compose down --rmi local --volumes
 	docker builder prune -f
 	rm -rf requirements.txt
+
+bash:
+	docker-compose exec -it app bash
