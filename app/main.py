@@ -1,24 +1,24 @@
+import json
 from pathlib import Path
-from app import wkhtmltopdf
-
-from app.utils import make_tmpfile, get_hash
 from fastapi import FastAPI, Request, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse, Response
 from starlette import status
 
+from app import wkhtmltopdf
+from app.utils import make_tmpfile, get_hash
 
 app = FastAPI()
 
 
 @app.get("/help")
-def help(mode: str = None):
+def help(mode: str = "html"):
     usage = wkhtmltopdf.help(mode)
     return Response(usage, media_type="text/html" if mode == "html" else "text/plain")
 
 
-@app.get("/")
-def list_files():
+@app.get("/exported")
+def get_files():
     files = {}
     
     for f in Path("/tmp").glob("*"):
@@ -35,7 +35,7 @@ def list_files():
     return files
 
 
-@app.get("/{id}")
+@app.get("/exported/{id}")
 def get_file(id: str, disposition: str = "inline"):
     path: Path = Path(f"/tmp/{id}")
 
@@ -59,43 +59,58 @@ def get_file(id: str, disposition: str = "inline"):
     )
 
 
+@app.get("/")
+async def generate_pdf_from_url(request: Request) -> FileResponse:
+    query_params = dict(request.query_params)
+    url = query_params.pop('url')
+    pdf_filepath = wkhtmltopdf.generate_url_to_pdf(url, options=query_params)
+    
+    return FileResponse(
+        pdf_filepath,
+        media_type="application/pdf",
+        headers={ "X-ID": pdf_filepath.stem },
+        filename=f"{pdf_filepath.stem}.pdf"
+    )
+
+
 @app.post("/")
-async def generate_pdf(request: Request) -> FileResponse:
+async def generate_pdf_from_html_file(request: Request) -> FileResponse:
     form = dict(await request.form())
-
     upload_file: UploadFile = form.pop("file")
-    data = await upload_file.read() # FIXME if large file
+    
+    file_data_bytes = await upload_file.read() # FIXME if large file
+    options_bytes = json.dumps(form, sort_keys=True).encode('utf8')
 
-    sha256 = get_hash(data, "sha256")
-    pdf_filepath = make_tmpfile(sha256, suffix=".pdf", touch=False)
+    sha256_request = get_hash(file_data_bytes + options_bytes, "sha256")
+    pdf_filepath = make_tmpfile(sha256_request, suffix=".pdf", touch=False)
 
-    headers = { "X-ID": sha256 }
     response_status_code = status.HTTP_200_OK
 
-    force_rewrite = form.pop("force", "no") in [True, "1", "y", "yes", "true"]
+    already_generated = pdf_filepath.with_suffix(".html").exists()
+    force_regenerate = form.pop("regenerate", "no") in [True, "1", "y", "yes", "true"]
 
-    if force_rewrite or not pdf_filepath.with_suffix(".html").exists():
+    if force_regenerate or not already_generated:
         response_status_code = status.HTTP_201_CREATED
 
-        html_filepath = make_tmpfile(sha256, suffix=".html")
-        html_filepath.write_bytes(data)
+        html_filepath = make_tmpfile(sha256_request, suffix=".html")
+        html_filepath.write_bytes(file_data_bytes)
 
-        wkhtmltopdf.generate_pdf(html_filepath, options=dict(form.items()), pdf_filepath=pdf_filepath)
+        wkhtmltopdf.generate_html_to_pdf(html_filepath, pdf_filepath, options=form)
 
     return FileResponse(
         pdf_filepath,
         status_code=response_status_code,
         media_type="application/pdf",
-        headers=headers,
+        headers={ "X-ID": sha256_request },
         filename=Path(upload_file.filename).stem + ".pdf"
     )
 
 
-@app.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/exported", status_code=status.HTTP_204_NO_CONTENT)
 def delete_all_files():
     [f.unlink() for f in Path("/tmp").glob("*") if f.is_file()]
 
 
-@app.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/exported/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_files(id: str):
     [f.unlink() for f in Path("/tmp").glob(f"{id}.*") if f.is_file()]

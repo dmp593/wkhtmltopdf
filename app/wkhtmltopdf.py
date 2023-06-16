@@ -5,9 +5,10 @@ from functools import cache
 
 from pathlib import Path
 
-from app.utils import make_tmpfile
+from app.utils import ensure_http_scheme, make_tmpfile
 
 
+XVFB_BINARY_PATH = "/usr/bin/xvfb-run"
 WKHTMLTOPDF_BINARY_PATH = "wkhtmltopdf"
 
 
@@ -16,7 +17,7 @@ def help(mode: str = None) -> bytes:
     match mode:
         case "html":
             help_option = "--htmldoc"
-        case "extended":
+        case "extended" | "verbose":
             help_option = "--extended-help"
         case _: # help output is the default (simple)
             help_option = "--help"
@@ -24,30 +25,48 @@ def help(mode: str = None) -> bytes:
     return subprocess.check_output([WKHTMLTOPDF_BINARY_PATH, help_option])
 
 
-def generate_pdf(html_filepath: Path | str, options: dict[str, str], pdf_filepath: Path | str | None = None) -> Path:
-    html_filepath = Path(html_filepath)
-    pdf_filepath = Path(pdf_filepath) if pdf_filepath else make_tmpfile(suffix="pdf", touch=False)
-    
-    if not html_filepath.exists():
-        raise Exception("Path to the HTML file does not exist!")
-
-    # cmd_args = ["/usr/bin/xvfb-run", WKHTMLTOPDF_BINARY_PATH]
-    cmd_args = [WKHTMLTOPDF_BINARY_PATH]
+def make_cli_options(**options) -> list[str]:
+    cli_options = []
 
     for key, value in options.items():
-        cmd_args.append(f"--{key}")
+        if not key.startswith("-"):
+            key = f"-{key}" if len(key) == 1 else f"--{key}"
+        cli_options.append(key)
 
         if key in ["header-html", "footer-html"]:
             filepath = make_tmpfile(suffix=".html")
+            value = ensure_http_scheme(value)
             filepath.write_bytes(requests.get(value).content)
             value = filepath
 
         if value:
-            cmd_args.append(value)
-        
-    cmd_args.append(html_filepath)
-    cmd_args.append(pdf_filepath)
+            cli_options.append(value)
 
-    subprocess.run(cmd_args)
+    return cli_options
+
+
+def generate_url_to_pdf(url: str, options: dict[str, str]) -> Path:
+    pdf_filepath = make_tmpfile(suffix=".pdf", touch=False)
+    url = ensure_http_scheme(url, default_secure=True)
+
+    subprocess.run([
+        XVFB_BINARY_PATH,
+        WKHTMLTOPDF_BINARY_PATH,
+        *make_cli_options(**options),
+        url,
+        pdf_filepath
+    ])
+
+    return pdf_filepath
+
+
+def generate_html_to_pdf(html_filepath: Path, pdf_filepath: Path, options: dict[str, str]) -> Path:
+    subprocess.run([
+        XVFB_BINARY_PATH,
+        WKHTMLTOPDF_BINARY_PATH,
+        *make_cli_options(**options),
+        html_filepath,
+        pdf_filepath
+    ])
 
     return pdf_filepath

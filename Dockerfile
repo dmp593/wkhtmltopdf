@@ -16,7 +16,8 @@ RUN apt-get update && \
         software-properties-common \
         ca-certificates \
         lsb-release \
-        wget \
+        openssl \
+        xvfb \
         build-essential \
         libncursesw5-dev \
         libssl-dev \
