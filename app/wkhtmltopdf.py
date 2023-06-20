@@ -1,8 +1,8 @@
 import subprocess
 import requests
 
+from humps import kebabize
 from functools import cache
-
 from pathlib import Path
 
 from app.utils import ensure_http_scheme, get_hash, make_tmpfile
@@ -28,8 +28,11 @@ def make_cli_options(**options) -> list[str]:
     cli_options = []
 
     for key, value in options.items():
+        key = kebabize(key)
+
         if not key.startswith("-"):
             key = f"-{key}" if len(key) == 1 else f"--{key}"
+        
         cli_options.append(key)
 
         if key in ["header-html", "footer-html"]:
