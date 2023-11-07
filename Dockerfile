@@ -33,8 +33,8 @@ WORKDIR /home/setwin
 
 COPY ./app /home/setwin/app
 
-EXPOSE 80
+EXPOSE 8080
 
 ENTRYPOINT [ "python" ]
 
-CMD [ "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80" ]
+CMD [ "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080" ]
