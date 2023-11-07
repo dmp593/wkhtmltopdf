@@ -4,7 +4,7 @@ services:
   app:
     build: .
     volumes:
-      - ./app:/weasyprint/app
+      - ./app:/home/setwin/app
     ports:
-      - "8000:80"
-    entrypoint: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
+      - "8009:80"
+    command: ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]

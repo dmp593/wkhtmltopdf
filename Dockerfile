@@ -1,20 +1,40 @@
-FROM python:3.11-bookworm
+FROM python:3.12-bookworm AS builder
+
+COPY ./requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt -t /dependencies
+
+FROM python:3.12-bookworm
 
 LABEL maintainer="Daniel Pinto"
+
+ARG UID=1337
+ARG GID=1339
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG DEBCONF_NOWARNINGS=yes
 
-RUN apt-get update && apt-get -y install wkhtmltopdf
+# Create the setwin user with a specific UID and GID
+RUN addgroup --system --gid ${GID} setwin \
+    && adduser --system --uid ${UID} --ingroup setwin --home /home/setwin --shell /bin/bash setwin
 
-WORKDIR /code
+# Copy only the installed dependencies from the build stage
+COPY --from=builder /dependencies /usr/local/lib/python3.12/site-packages/
 
-COPY ./requirements.txt /code/requirements.txt
+# Install wkhtmltopdf and clean up
+RUN apt-get update \
+    && apt-get install -y wkhtmltopdf \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir --upgrade -r /code/requirements.txt
+USER setwin
 
-RUN rm requirements.txt
+WORKDIR /home/setwin
 
-COPY ./app /code/app
+COPY ./app /home/setwin/app
 
-ENTRYPOINT ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+EXPOSE 80
+
+ENTRYPOINT [ "python" ]
+
+CMD [ "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80" ]
