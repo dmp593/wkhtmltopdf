@@ -24,7 +24,7 @@ spec:
             memory: 400Mi
         livenessProbe:
           tcpSocket:
-            port: 8080
+            port: 80
           initialDelaySeconds: 5
           timeoutSeconds: 5
           successThreshold: 1
