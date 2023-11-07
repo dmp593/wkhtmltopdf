@@ -13,6 +13,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: cr-svc
+                name: wkhtmltopdf-svc
                 port:
                   number: 80
